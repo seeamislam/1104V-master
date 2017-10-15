@@ -1,0 +1,115 @@
+//Debugging windows
+#pragma DebuggerWindows("Globals")
+#pragma DebuggerWindows("debugStream")
+#pragma DebuggerWindows("Sensors")
+#pragma DebuggerWindows("Timers")
+#pragma DebuggerWindows("Motors")
+#include "Vex_Competition_Includes.c"
+
+
+
+#define JOY_THRESHOLD 				  15
+#define MOTOR_NUM               kNumbOfTotalMotors
+#define MOTOR_MAX_VALUE         127
+#define MOTOR_MIN_VALUE         (-127)
+#define MOTOR_DEFAULT_SLEW_RATE 90      // Default will cause 375mS from full fwd to rev
+#define MOTOR_FAST_SLEW_RATE    256     // essentially off
+#define MOTOR_TASK_DELAY        15      // task 1/frequency in mS (about 66Hz)
+#define MOTOR_DEADBAND          10
+
+
+//Functions
+void DriveLeftMotor(int L);
+void DriveRightMotor(int R);
+
+
+//																		Slew Rate Variables
+
+// Array to hold requested speed for the motors
+int motorReq[MOTOR_NUM];
+
+// Array to hold "slew rate" for the motors, the maximum change every time the task
+// runs checking current motor speed.
+int motorSlew[MOTOR_NUM];
+
+
+
+task Drive()
+{
+	signed int joyL;
+	signed int joyR;
+	int drive_l;
+	int drive_r;
+
+	int mI; //motor index
+	int motorTmp;
+
+	for(mI=0;mI<(signed)MOTOR_NUM;mI++)
+	{
+		motorReq[mI] = 0;
+		motorSlew[mI] = MOTOR_DEFAULT_SLEW_RATE;
+	}
+
+	while(1)
+	{
+		// run loop for every motor
+		for(mI=0; mI<(signed)MOTOR_NUM; mI++)
+		{
+			motorTmp = motor[ mI ];
+			if(motorTmp != motorReq[mI])
+			{
+				// increasing motor value
+				if(motorReq[mI] > motorTmp)
+				{
+					motorTmp += motorSlew[mI];
+					// limit
+					if(motorTmp > motorReq[mI])
+					motorTmp = motorReq[mI];
+				}
+				// decreasing motor value
+				if(motorReq[mI] < motorTmp)
+				{
+					motorTmp -= motorSlew[mI];
+					// limit
+					if(motorTmp < motorReq[mI])
+					motorTmp = motorReq[mI];
+				}
+
+				// set motor
+				motor[mI] = motorTmp;
+			}
+			joyL = vexRT[Ch3];
+			joyR = vexRT[Ch2];
+			if((abs(joyL) <= JOY_THRESHOLD) && (abs(joyR) <= JOY_THRESHOLD))
+			{
+				drive_l = 0;
+				drive_r = 0;
+			}
+			else
+			{
+				// Create drive for left and right motors
+				drive_l = joyL;
+				drive_r = joyR;
+			}
+			DriveLeftMotor(joyL);
+			DriveRightMotor(joyR);
+			// Wait approx the speed of motor update over the spi bus ~18ms
+			wait1Msec(MOTOR_TASK_DELAY);
+		}
+	}
+}
+
+
+//In progress for slew Rate
+void DriveLeftMotor(int L)
+{
+ motorReq[fL] = L;
+ motorReq[bL] = L;
+}
+
+//In progress for slew Rate
+void DriveRightMotor(int R)
+{
+ motorReq[fR] = R;
+ motorReq[bR] = R;
+}
